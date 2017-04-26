@@ -1,4 +1,9 @@
 <div class="container">
   <h1>Char</h1>
-  <app-canvas></app-canvas>
+  <div class="row">
+    <a (click)="canvas.clearRect()" class="btn btn-danger">Clear</a>
+  </div>
+  <div class="row">
+    <app-canvas #canvas></app-canvas>
+  </div>
 </div>

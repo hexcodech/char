@@ -39,7 +39,7 @@ export class CanvasComponent implements AfterViewInit {
     Observable
       .fromEvent(canvasEl, 'mousedown')
       .switchMap((event) => {
-        //We got a click now record all mouse moves till the click stops and get pairs of values to generate a line
+        //We got a click now record all mouse moves till the click stops (or off canvas) and get pairs of values to generate a line
         return Observable
           .fromEvent(canvasEl, 'mousemove')
           .takeUntil(Observable.fromEvent(canvasEl, 'mouseup'))
@@ -85,5 +85,12 @@ export class CanvasComponent implements AfterViewInit {
       this.cx.lineTo(currentPos.x, currentPos.y); //to
       this.cx.stroke(); //apply the stroke settings set in ngAfterViewInit
     }
+  }
+
+  public clearRect() {
+    if(!this.cx)
+      return;
+
+    this.cx.clearRect(0, 0, this.width, this.height);
   }
 }
