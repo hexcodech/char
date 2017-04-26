@@ -26,7 +26,7 @@ export class CanvasComponent implements AfterViewInit {
     canvasEl.height = this.height;
 
     //set draw settings
-    this.cx.lineWidth = 3;
+    this.cx.lineWidth = 10;
     this.cx.lineCap = 'round';
     this.cx.strokeStyle = '#000000';
 
@@ -43,12 +43,13 @@ export class CanvasComponent implements AfterViewInit {
         return Observable
           .fromEvent(canvasEl, 'mousemove')
           .takeUntil(Observable.fromEvent(canvasEl, 'mouseup'))
+          .takeUntil(Observable.fromEvent(canvasEl, 'mouseout'))
           .pairwise()
       })
       .subscribe((res: [MouseEvent, MouseEvent]) => {
         const rect = canvasEl.getBoundingClientRect();
 
-        //current & previous pos + offset
+        //current & previous pos - offset
         const prevPos = {
           x: res[0].clientX - rect.left,
           y: res[0].clientY - rect.top
