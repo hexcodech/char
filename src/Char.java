@@ -1,3 +1,9 @@
+import com.corundumstudio.socketio.AckRequest;
+import com.corundumstudio.socketio.Configuration;
+import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.listener.DataListener;
+import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
@@ -16,6 +22,11 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 /**A Simple Multi Layered Perceptron (MLP) applied to digit classification for
@@ -38,58 +49,77 @@ import org.slf4j.LoggerFactory;
 public class Char {
 
     private static Logger log = LoggerFactory.getLogger(Char.class);
+    private static final int numRows    = 28;
+    private static final int numColumns = 28;
+    private static final int outputNum  = 10;
+    private static final int batchSize  = 128;
+    private static final int rngSeed    = 123;
+    private static final int numEpochs  = 15;
+
+    private static final String hostname = "localhost";
+    private static final int port        = 6969;
+
+    private DataSetIterator mnistTrain, mnistTest;
+    private MultiLayerNetwork model;
+    private MultiLayerConfiguration conf;
+
+    private SocketIOServer server;
 
     public static void main(String[] args) throws Exception {
-        //number of rows and columns in the input pictures
-        final int numRows = 28;
-        final int numColumns = 28;
-        int outputNum = 10; // number of output classes
-        int batchSize = 128; // batch size for each epoch
-        int rngSeed = 123; // random number seed for reproducibility
-        int numEpochs = 15; // number of epochs to perform
+        new Char();
+    }
 
-        //Get the DataSetIterators:
-        DataSetIterator mnistTrain = new MnistDataSetIterator(batchSize, true, rngSeed);
-        DataSetIterator mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
+    Char() throws Exception{
+
+        //Setup some variables
+        mnistTrain = new MnistDataSetIterator(batchSize, true, rngSeed);
+        mnistTest  = new MnistDataSetIterator(batchSize, false, rngSeed);
+
+        log.info("Load model....");
+        loadModel("mnist-data.ai"); addShutdownHook();
+
+        setupSocketIO();
+        server.addEventListener("read", String.class, new DataListener<String>() {
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
+                //client.sendEvent("msg", data);
+            }
+        });
+        server.addEventListener("work", String.class, new DataListener<String>() {
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
+                doWork();
+                client.sendEvent("evaluate", evaluate());
+            }
+        });
+        server.addEventListener("stop hammertime", String.class, new DataListener<String>() {
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
+                server.stop();
+            }
+        });
+
+        server.start();
 
 
-        log.info("Build model....");
-        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                .seed(rngSeed) //include a random seed for reproducibility
-                // use stochastic gradient descent as an optimization algorithm
-                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .iterations(1)
-                .learningRate(0.006) //specify the learning rate
-                .updater(Updater.NESTEROVS).momentum(0.9) //specify the rate of change of the learning rate.
-                .regularization(true).l2(1e-4)
-                .list()
-                .layer(0, new DenseLayer.Builder() //create the first, input layer with xavier initialization
-                        .nIn(numRows * numColumns)
-                        .nOut(1000)
-                        .activation(Activation.RELU)
-                        .weightInit(WeightInit.XAVIER)
-                        .build())
-                .layer(1, new OutputLayer.Builder(LossFunction.NEGATIVELOGLIKELIHOOD) //create hidden layer
-                        .nIn(1000)
-                        .nOut(outputNum)
-                        .activation(Activation.SOFTMAX)
-                        .weightInit(WeightInit.XAVIER)
-                        .build())
-                .pretrain(false).backprop(true) //use backpropagation to adjust weights
-                .build();
+    }
 
-        MultiLayerNetwork model = new MultiLayerNetwork(conf);
+    void setupSocketIO(){
+        Configuration config = new Configuration();
+        config.setHostname(hostname);
+        config.setPort(port);
+
+        server = new SocketIOServer(config);
+    }
+
+    void doWork(){
         model.init();
         //print the score with every 1 iteration
         model.setListeners(new ScoreIterationListener(1));
 
-        log.info("Train model....");
-        for( int i=0; i<numEpochs; i++ ){
+        for(int i=0; i<numEpochs; i++){
             model.fit(mnistTrain);
         }
+    }
 
-
-        log.info("Evaluate model....");
+    String evaluate(){
         Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
         while(mnistTest.hasNext()){
             DataSet next = mnistTest.next();
@@ -97,9 +127,61 @@ public class Char {
             eval.eval(next.getLabels(), output); //check the prediction against the true class
         }
 
-        log.info(eval.stats());
-        log.info("****************Example finished********************");
+        return eval.stats();
+    }
 
+    void loadModel(String path) throws Exception{
+        File save = new File(path);
+
+        if(save.exists()){
+            conf  = null;
+            model = ModelSerializer.restoreMultiLayerNetwork(new File(path));
+        }else{
+            conf = new NeuralNetConfiguration.Builder()
+                    .seed(rngSeed) //include a random seed for reproducibility
+                    // use stochastic gradient descent as an optimization algorithm
+                    .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                    .iterations(1)
+                    .learningRate(0.006) //specify the learning rate
+                    .updater(Updater.NESTEROVS).momentum(0.9) //specify the rate of change of the learning rate.
+                    .regularization(true).l2(1e-4)
+                    .list()
+                    .layer(0, new DenseLayer.Builder() //create the first, input layer with xavier initialization
+                            .nIn(numRows * numColumns)
+                            .nOut(1000)
+                            .activation(Activation.RELU)
+                            .weightInit(WeightInit.XAVIER)
+                            .build())
+                    .layer(1, new OutputLayer.Builder(LossFunction.NEGATIVELOGLIKELIHOOD) //create hidden layer
+                            .nIn(1000)
+                            .nOut(outputNum)
+                            .activation(Activation.SOFTMAX)
+                            .weightInit(WeightInit.XAVIER)
+                            .build())
+                    .pretrain(false).backprop(true) //use backpropagation to adjust weights
+                    .build();
+
+            model = new MultiLayerNetwork(conf);
+        }
+    }
+
+    void addShutdownHook(){
+        final Thread mainThread = Thread.currentThread();
+        final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+        final Date date = new Date();
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                try{
+                    File locationToSave = new File("mnist-data.ai");
+                    ModelSerializer.writeModel(model, locationToSave, true);
+
+                    mainThread.join();
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 
 }
