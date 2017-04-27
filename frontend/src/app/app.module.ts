@@ -6,6 +6,8 @@ import { HttpModule } from '@angular/http';
 import { AppComponent } from './app.component';
 import { CanvasComponent } from './app.canvas';
 
+import { SocketIO } from './services/socket-io';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -16,7 +18,9 @@ import { CanvasComponent } from './app.canvas';
     FormsModule,
     HttpModule
   ],
-  providers: [],
+  providers: [
+    SocketIO
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

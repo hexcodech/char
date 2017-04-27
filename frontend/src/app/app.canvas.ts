@@ -1,5 +1,7 @@
 import { Component, Input, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { Observable } from 'rxjs/Rx';
+import { SocketIO } from './services/socket-io';
+import * as _ from "lodash";
 
 @Component({
   selector: 'app-canvas',
@@ -15,6 +17,11 @@ export class CanvasComponent implements AfterViewInit {
   @Input() public height = 400;
 
   private cx: CanvasRenderingContext2D;
+  private socketIO;
+
+  constructor(socketIO: SocketIO) {
+    this.socketIO = socketIO;
+  }
 
   ngAfterViewInit() {
     //get context
@@ -61,6 +68,8 @@ export class CanvasComponent implements AfterViewInit {
 
         //let's draw
         this.drawOnCanvas(prevPos, currentPos);
+        //and then send...
+        this.sendBase64PNG();
       })
   }
 
@@ -86,6 +95,11 @@ export class CanvasComponent implements AfterViewInit {
       this.cx.stroke(); //apply the stroke settings set in ngAfterViewInit
     }
   }
+
+  private sendBase64PNG = _.throttle(() => {
+    this.socketIO.sendMessage('read', this.canvas.nativeElement.toDataURL());
+    console.log(this.canvas.nativeElement.toDataURL());
+  }, 250);
 
   public clearRect() {
     if(!this.cx)
