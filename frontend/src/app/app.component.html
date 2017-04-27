@@ -1,9 +1,18 @@
 <div class="container">
   <h1>Char</h1>
   <div class="row">
-    <a (click)="canvas.clearRect()" class="btn btn-danger">Clear</a>
+    <div class="col-md-1">
+      <a (click)="canvas.clearRect()" class="btn btn-outline-warning">Clear</a>
+    </div>
+    <div class="col-md-1">
+      <a (click)="shutdownServer()" class="btn btn-outline-danger">Stop Server</a>
+    </div>
   </div>
   <div class="row">
-    <app-canvas #canvas></app-canvas>
+    <div class="col-md-12">
+      <div class="center">
+        <app-canvas #canvas></app-canvas>
+      </div>
+    </div>
   </div>
 </div>

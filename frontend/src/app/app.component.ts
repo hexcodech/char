@@ -20,4 +20,8 @@ export class AppComponent implements OnInit {
       console.log(data);
     });
   }
+
+  private shutdownServer()  {
+    this.socketIO.sendMessage('stop hammertime', '');
+  }
 }
