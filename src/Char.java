@@ -26,155 +26,104 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.BASE64Decoder;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorConvertOp;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 
-/**A Simple Multi Layered Perceptron (MLP) applied to digit classification for
- * the MNIST Dataset (http://yann.lecun.com/exdb/mnist/).
- *
- * This file builds one input layer and one hidden layer.
- *
- * The input layer has input dimension of numRows*numColumns where these variables indicate the
- * number of vertical and horizontal pixels in the image. This layer uses a rectified linear unit
- * (relu) activation function. The weights for this layer are initialized by using Xavier initialization
- * (https://prateekvjoshi.com/2016/03/29/understanding-xavier-initialization-in-deep-neural-networks/)
- * to avoid having a steep learning curve. This layer will have 1000 output signals to the hidden layer.
- *
- * The hidden layer has input dimensions of 1000. These are fed from the input layer. The weights
- * for this layer is also initialized using Xavier initialization. The activation function for this
- * layer is a softmax, which normalizes all the 10 outputs such that the normalized sums
- * add up to 1. The highest of these normalized values is picked as the predicted class.
- *
- */
 public class Char {
 
     private static Logger log = LoggerFactory.getLogger(Char.class);
-    private static final int numRows    = 28;
-    private static final int numColumns = 28;
-    private static final int outputNum  = 10;
+    private static final int OUTPUT_NUM          = 10;
 
-    private static final int batchSize  = 128;
-    private static final int seed       = 123;
-    private static final int numEpochs  = 15;
-    private static final int nChannels  = 1;
-    private static final int iterations = 1;
+    private static final int BATCH_SIZE          = 128;
+    private static final int SEED                = 932;
+    private static final int NUM_EPOCHS          = 15;
+    private static final int N_CHANNELS          = 1;
+    private static final int ITERATIONS          = 1;
 
-    private static final String hostname = "localhost";
-    private static final int port        = 6969;
-    private static String encodingPrefix = "base64,";
+    private static final String HOSTNAME         = "localhost";
+    private static final int PORT                = 6969;
+    private static final String ENCODING_PREFIX  = "base64,";
 
-    private DataSetIterator mnistTrain, mnistTest;
-    private MultiLayerNetwork model;
-    private MultiLayerConfiguration conf;
 
-    private SocketIOServer server;
+    private DataSetIterator                      mnistTrain, mnistTest;
+    private MultiLayerNetwork                    model;
+    private MultiLayerConfiguration              conf;
 
-    private boolean working = false;
+    private SocketIOServer                       server;
 
-    private BASE64Decoder decoder = new BASE64Decoder();
-    private ImageLoader loader = new ImageLoader();
+    private BASE64Decoder decoder                = new BASE64Decoder();
+    private ImageLoader loader                   = new ImageLoader();
 
-    public static void main(String[] args) throws Exception {
-        new Char();
-    }
+
+    private boolean working                      = false;
 
     Char() throws Exception{
 
-        //Setup some variables
-        log.info("Load model....");
-        loadModel("mnist-data.ai"); addShutdownHook();
 
+        loadModel("mnist-data.ai"); addSaveHook();
         setupSocketIO();
+
         server.addEventListener("read", String.class, new DataListener<String>() {
             public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
-
-                BufferedImage originalImage = null, scaledImage = null;
-                byte[] imageBytes;
-                ByteArrayInputStream bis;
-
                 try{
 
-                    int contentStartIndex = data.indexOf(encodingPrefix) + encodingPrefix.length();
+                    int contentStartIndex        = data.indexOf(ENCODING_PREFIX) + ENCODING_PREFIX.length();
+                    byte[] imageBytes            = decoder.decodeBuffer(data.substring(contentStartIndex));
+                    ByteArrayInputStream bis     = new ByteArrayInputStream(imageBytes);
+                    BufferedImage originalImage  = ImageIO.read(bis); bis.close();
 
-                    imageBytes = decoder.decodeBuffer(data.substring(contentStartIndex));
-
-                    bis = new ByteArrayInputStream(imageBytes);
-                    originalImage = ImageIO.read(bis); bis.close();
-
-                    scaledImage = new BufferedImage(28, 28, originalImage.getType());
-                    Graphics2D graphics2d = scaledImage.createGraphics();
-
-                    graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                    graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                    graphics2d.drawImage(originalImage, 0, 0, 28, 28, null);
-                    graphics2d.dispose();
-
-                    ImageIO.write(scaledImage, "png", new File("scaled.png"));
-
-                    INDArray values = loader.asRowVector(scaledImage); //doesn't work, not gray yet
+                    BufferedImage scaledImage    = scaleImage(originalImage, 28, 28);
+                    INDArray values              = loader.asRowVector(scaledImage); //not gray yet
 
                     for(int x=0;x<scaledImage.getWidth();x++){
                         for(int y=0;y<scaledImage.getHeight();y++){
-                            Color color = new Color(scaledImage.getRGB(x, y));
 
-                            int red = color.getRed();
-                            int green = color.getGreen();
-                            int blue = color.getBlue();
+                            //invert because the input is black on white and mnist white on black
+                            //and divide by 255 as the mnist values are between 0 and 1
 
-                            double gray = 1 - ((0.299 * red + 0.587 * green + 0.114 * blue) / 255); //also invert
-
-                            //System.out.println(gray + " " + (x*28 + y));
-
-                            values.putScalar(x + y*28, gray);
+                            values.putScalar(
+                                    x + y * 28,
+                                    1.0 - (toGray(new Color(scaledImage.getRGB(x, y))) / 255.0)
+                            );
                         }
                     }
 
-                    /*BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
-                    for( int i=0; i<784; i++ ){
-                        bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*values.getDouble(i)));
-                    }
-
-                    ImageIO.write(bi, "png", new File("read-gray-scaled.png"));*/
-
-                    INDArray output = model.output(values);
-                    DataBuffer buffer = output.data();
-
-                    client.sendEvent("read", Arrays.toString(buffer.asDouble()));
+                    client.sendEvent(
+                            "read",
+                            Arrays.toString(
+                                    model.output(values).data().asDouble()
+                            )
+                    );
 
                 }catch(Exception e){
                     e.printStackTrace();
                 }
             }
         });
+
         server.addEventListener("work", String.class, new DataListener<String>() {
             public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
                 try{
-                    doWork();
-                    client.sendEvent("evaluate", evaluate());
+                    trainNet();
+                    client.sendEvent("evaluate", evaluateNet());
+
                 }catch(Exception e){
                     e.printStackTrace();
                 }
             }
         });
+
         server.addEventListener("stop hammertime", String.class, new DataListener<String>() {
             public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
                 server.stop();
@@ -182,45 +131,33 @@ public class Char {
         });
 
         server.start();
-
-
-        /*mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
-        INDArray arr = mnistTest.next().getFeatureMatrix();
-        System.out.println(Arrays.toString(arr.data().asDouble()));
-
-        BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
-        for( int i=0; i<784; i++ ){
-            bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*arr.getDouble(i)));
-        }
-
-        ImageIO.write(bi, "png", new File("mnist.png"));*/
     }
 
     void setupSocketIO(){
         Configuration config = new Configuration();
-        config.setHostname(hostname);
-        config.setPort(port);
+        config.setHostname(HOSTNAME);
+        config.setPort(PORT);
 
         server = new SocketIOServer(config);
     }
 
-    void doWork() throws Exception{
+    void trainNet() throws Exception{
 
-        mnistTrain = new MnistDataSetIterator(batchSize, true, seed);
+        mnistTrain = new MnistDataSetIterator(BATCH_SIZE, true, SEED);
 
         working = true;
 
-        for(int i=0; i<numEpochs; i++){
+        for(int i=0; i<NUM_EPOCHS; i++){
             model.fit(mnistTrain);
         }
 
         working = false;
     }
 
-    String evaluate() throws Exception{
-        mnistTest = new MnistDataSetIterator(batchSize, false, seed);
+    String evaluateNet() throws Exception{
+        mnistTest = new MnistDataSetIterator(BATCH_SIZE, false, SEED);
 
-        Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
+        Evaluation eval = new Evaluation(OUTPUT_NUM); //create an evaluation object with 10 possible classes
         while(mnistTest.hasNext()){
             DataSet next = mnistTest.next();
             INDArray output = model.output(next.getFeatureMatrix()); //get the networks prediction
@@ -228,6 +165,28 @@ public class Char {
         }
 
         return eval.stats();
+    }
+
+    BufferedImage scaleImage(BufferedImage image, int width, int height){
+        BufferedImage scaledImage = new BufferedImage(width, height, image.getType());
+        Graphics2D graphics2d = scaledImage.createGraphics();
+
+        graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        graphics2d.drawImage(image, 0, 0, width, height, null);
+        graphics2d.dispose();
+
+        return scaledImage;
+    }
+
+    double toGray(Color color){
+        int red = color.getRed();
+        int green = color.getGreen();
+        int blue = color.getBlue();
+
+        return (0.299 * red + 0.587 * green + 0.114 * blue);
     }
 
     void loadModel(String path) throws Exception{
@@ -245,8 +204,8 @@ public class Char {
             lrSchedule.put(3000, 0.001);
 
             conf = new NeuralNetConfiguration.Builder()
-                .seed(seed)
-                .iterations(iterations) // Training iterations as above
+                .seed(SEED)
+                .iterations(ITERATIONS)
                 .regularization(true).l2(0.0005)
             /*
                 Uncomment the following for learning decay and bias
@@ -272,7 +231,7 @@ public class Char {
                 .list()
                 .layer(0, new ConvolutionLayer.Builder(5, 5)
                         //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
-                        .nIn(nChannels)
+                        .nIn(N_CHANNELS)
                         .stride(1, 1)
                         .nOut(20)
                         .activation(Activation.IDENTITY)
@@ -294,7 +253,7 @@ public class Char {
                 .layer(4, new DenseLayer.Builder().activation(Activation.RELU)
                         .nOut(500).build())
                 .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
+                        .nOut(OUTPUT_NUM)
                         .activation(Activation.SOFTMAX)
                         .build())
                 .setInputType(InputType.convolutionalFlat(28,28,1)) //See note below
@@ -310,10 +269,8 @@ public class Char {
         return;
     }
 
-    void addShutdownHook(){
+    void addSaveHook(){
         final Thread mainThread = Thread.currentThread();
-        final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
-        final Date date = new Date();
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
@@ -327,6 +284,10 @@ public class Char {
                 }
             }
         });
+    }
+
+    public static void main(String[] args) throws Exception {
+        new Char();
     }
 
 }
