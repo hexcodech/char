@@ -4,6 +4,10 @@ import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.DataListener;
 import org.datavec.image.loader.ImageLoader;
+import org.deeplearning4j.nn.conf.LearningRatePolicy;
+import org.deeplearning4j.nn.conf.inputs.InputType;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.buffer.DataBuffer;
@@ -21,6 +25,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +42,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**A Simple Multi Layered Perceptron (MLP) applied to digit classification for
@@ -64,8 +71,10 @@ public class Char {
     private static final int outputNum  = 10;
 
     private static final int batchSize  = 128;
-    private static final int rngSeed    = 123;
+    private static final int seed       = 123;
     private static final int numEpochs  = 15;
+    private static final int nChannels  = 1;
+    private static final int iterations = 1;
 
     private static final String hostname = "localhost";
     private static final int port        = 6969;
@@ -174,6 +183,7 @@ public class Char {
 
         server.start();
 
+
         /*mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
         INDArray arr = mnistTest.next().getFeatureMatrix();
         System.out.println(Arrays.toString(arr.data().asDouble()));
@@ -196,7 +206,7 @@ public class Char {
 
     void doWork() throws Exception{
 
-        mnistTrain = new MnistDataSetIterator(batchSize, true, rngSeed);
+        mnistTrain = new MnistDataSetIterator(batchSize, true, seed);
 
         working = true;
 
@@ -208,7 +218,7 @@ public class Char {
     }
 
     String evaluate() throws Exception{
-        mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
+        mnistTest = new MnistDataSetIterator(batchSize, false, seed);
 
         Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
         while(mnistTest.hasNext()){
@@ -227,29 +237,68 @@ public class Char {
             conf  = null;
             model = ModelSerializer.restoreMultiLayerNetwork(new File(path));
         }else{
+
+            // learning rate schedule in the form of <Iteration #, Learning Rate>
+            Map<Integer, Double> lrSchedule = new HashMap<>();
+            lrSchedule.put(0, 0.01);
+            lrSchedule.put(1000, 0.005);
+            lrSchedule.put(3000, 0.001);
+
             conf = new NeuralNetConfiguration.Builder()
-                    .seed(rngSeed) //include a random seed for reproducibility
-                    // use stochastic gradient descent as an optimization algorithm
-                    .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                    .iterations(1)
-                    .learningRate(0.006) //specify the learning rate
-                    .updater(Updater.NESTEROVS).momentum(0.9) //specify the rate of change of the learning rate.
-                    .regularization(true).l2(1e-4)
-                    .list()
-                    .layer(0, new DenseLayer.Builder() //create the first, input layer with xavier initialization
-                            .nIn(numRows * numColumns)
-                            .nOut(1000)
-                            .activation(Activation.RELU)
-                            .weightInit(WeightInit.XAVIER)
-                            .build())
-                    .layer(1, new OutputLayer.Builder(LossFunction.NEGATIVELOGLIKELIHOOD) //create hidden layer
-                            .nIn(1000)
-                            .nOut(outputNum)
-                            .activation(Activation.SOFTMAX)
-                            .weightInit(WeightInit.XAVIER)
-                            .build())
-                    .pretrain(false).backprop(true) //use backpropagation to adjust weights
-                    .build();
+                .seed(seed)
+                .iterations(iterations) // Training iterations as above
+                .regularization(true).l2(0.0005)
+            /*
+                Uncomment the following for learning decay and bias
+             */
+                .learningRate(.01)//.biasLearningRate(0.02)
+            /*
+                Alternatively, you can use a learning rate schedule.
+                NOTE: this LR schedule defined here overrides the rate set in .learningRate(). Also,
+                if you're using the Transfer Learning API, this same override will carry over to
+                your new model configuration.
+            */
+                .learningRateDecayPolicy(LearningRatePolicy.Schedule)
+                .learningRateSchedule(lrSchedule)
+            /*
+                Below is an example of using inverse policy rate decay for learning rate
+            */
+                //.learningRateDecayPolicy(LearningRatePolicy.Inverse)
+                //.lrPolicyDecayRate(0.001)
+                //.lrPolicyPower(0.75)
+                .weightInit(WeightInit.XAVIER)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .updater(Updater.NESTEROVS).momentum(0.9)
+                .list()
+                .layer(0, new ConvolutionLayer.Builder(5, 5)
+                        //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
+                        .nIn(nChannels)
+                        .stride(1, 1)
+                        .nOut(20)
+                        .activation(Activation.IDENTITY)
+                        .build())
+                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2,2)
+                        .stride(2,2)
+                        .build())
+                .layer(2, new ConvolutionLayer.Builder(5, 5)
+                        //Note that nIn need not be specified in later layers
+                        .stride(1, 1)
+                        .nOut(50)
+                        .activation(Activation.IDENTITY)
+                        .build())
+                .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2,2)
+                        .stride(2,2)
+                        .build())
+                .layer(4, new DenseLayer.Builder().activation(Activation.RELU)
+                        .nOut(500).build())
+                .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(outputNum)
+                        .activation(Activation.SOFTMAX)
+                        .build())
+                .setInputType(InputType.convolutionalFlat(28,28,1)) //See note below
+                .backprop(true).pretrain(false).build();
 
             model = new MultiLayerNetwork(conf);
         }
