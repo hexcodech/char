@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="socket.io.min.js"></script>
+		<script>
+			var socket = io('http://localhost:6969');
+			
+			socket.on('connect', function(){});
+			socket.on('read', function(json){
+				let data = JSON.parse(json);
+				
+				console.log(data);
+				
+				let max = 0, i = 0;;
+				for(i=0;i<data.length;i++){
+					if(data[i] > data[max]){
+						max = i;
+					}
+				}
+				
+				console.log("Max: " + max + " with " + data[max]);
+			});
+			socket.on('disconnect', function(){});
+		</script>
+	</head>
+	<body>
+		<canvas id="canvas" width="28" height="28"></canvas>
+		<img id='mnist' src='../mnist.png' height='28' width='28' style='opacity: 0;'>
+		<script>
+			let c = document.getElementById("canvas");
+			let ctx = c.getContext("2d");
+			
+			var img = document.getElementById("mnist");
+			ctx.drawImage(img, 0, 0, 28, 28);
+			
+			var image = c.toDataURL();
+			socket.emit('read', image);
+			
+			console.log(image);
+		</script>
+	</body>
+</html>
