@@ -38,6 +38,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 
 public class Char {
@@ -46,7 +47,6 @@ public class Char {
     private static final int OUTPUT_NUM          = 10;
 
     private static final int BATCH_SIZE          = 128;
-    private static final int SEED                = 932;
     private static final int NUM_EPOCHS          = 15;
     private static final int N_CHANNELS          = 1;
     private static final int ITERATIONS          = 1;
@@ -54,6 +54,8 @@ public class Char {
     private static final String HOSTNAME         = "localhost";
     private static final int PORT                = 6969;
     private static final String ENCODING_PREFIX  = "base64,";
+
+    private final int                            SEED;
 
 
     private DataSetIterator                      mnistTrain, mnistTest;
@@ -64,14 +66,15 @@ public class Char {
 
     private BASE64Decoder decoder                = new BASE64Decoder();
     private ImageLoader loader                   = new ImageLoader();
+    private Random random                        = new Random();
 
 
     private boolean working                      = false;
 
     Char() throws Exception{
+        SEED = random.nextInt(1000);//set seed to a constant to be able to find better hyperparams
 
-
-        loadModel("mnist-data.ai"); addSaveHook();
+        loadModel("mnist-data.ki"); addSaveHook();
         setupSocketIO();
 
         server.addEventListener("read", String.class, new DataListener<String>() {
@@ -115,8 +118,8 @@ public class Char {
         server.addEventListener("work", String.class, new DataListener<String>() {
             public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
                 try{
-                    trainNet();
-                    client.sendEvent("evaluate", evaluateNet());
+                    trainModel();
+                    client.sendEvent("evaluate", evaluateModel());
 
                 }catch(Exception e){
                     e.printStackTrace();
@@ -141,7 +144,7 @@ public class Char {
         server = new SocketIOServer(config);
     }
 
-    void trainNet() throws Exception{
+    void trainModel() throws Exception{
 
         mnistTrain = new MnistDataSetIterator(BATCH_SIZE, true, SEED);
 
@@ -154,7 +157,7 @@ public class Char {
         working = false;
     }
 
-    String evaluateNet() throws Exception{
+    String evaluateModel() throws Exception{
         mnistTest = new MnistDataSetIterator(BATCH_SIZE, false, SEED);
 
         Evaluation eval = new Evaluation(OUTPUT_NUM); //create an evaluation object with 10 possible classes
@@ -275,7 +278,7 @@ public class Char {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 try{
-                    File locationToSave = new File("mnist-data.ai");
+                    File locationToSave = new File("mnist-data.ki");
                     ModelSerializer.writeModel(model, locationToSave, true);
 
                     mainThread.join();
