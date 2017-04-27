@@ -317,7 +317,7 @@ module.exports = module.exports.toString();
 /***/ 235:
 /***/ (function(module, exports) {
 
-module.exports = "<div class=\"container\">\n  <h1>Char</h1>\n  <div class=\"row\">\n    <div class=\"col-md-1\">\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\n    </div>\n    <div class=\"col-md-1\">\n      <a (click)=\"shutdownServer()\" class=\"btn btn-outline-danger\">Stop Server</a>\n    </div>\n  </div>\n  <div class=\"row\">\n    <div class=\"col-md-12\">\n      <div class=\"center\">\n        <app-canvas #canvas></app-canvas>\n      </div>\n    </div>\n  </div>\n</div>\n"
+module.exports = "<div class=\"container\">\r\n  <h1>Char</h1>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-1\">\r\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\r\n    </div>\r\n    <div class=\"col-md-1\">\r\n      <a (click)=\"shutdownServer()\" class=\"btn btn-outline-danger\">Stop Server</a>\r\n    </div>\r\n  </div>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-12\">\r\n      <div class=\"center\">\r\n        <app-canvas #canvas></app-canvas>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n"
 
 /***/ }),
 
@@ -360,7 +360,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 
 var SocketIO = (function () {
     function SocketIO() {
-        this.url = '//localhost:8008';
+        this.url = '//localhost:6969';
         if (!this.socket) {
             this.initializeSocket();
         }
