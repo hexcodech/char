@@ -185,8 +185,11 @@ var AppComponent = (function () {
         this.socketIO = socketIO;
     }
     AppComponent.prototype.ngOnInit = function () {
+        var _this = this;
         this.socketIO.getSocket().on('read', function (data) {
             console.log(data);
+            _this.lastData = data;
+            _this.maxData = data.indexOf(Math.max.apply(Math, data));
         });
     };
     AppComponent.prototype.shutdownServer = function () {
@@ -310,7 +313,7 @@ exports = module.exports = __webpack_require__(48)(false);
 
 
 // module
-exports.push([module.i, "", ""]);
+exports.push([module.i, ".result {\n  font-size: 3em; }\n", ""]);
 
 // exports
 
@@ -323,7 +326,7 @@ module.exports = module.exports.toString();
 /***/ 235:
 /***/ (function(module, exports) {
 
-module.exports = "<div class=\"container\">\r\n  <h1>Char</h1>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-1\">\r\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\r\n    </div>\r\n    <div class=\"col-md-1\">\r\n      <a (click)=\"shutdownServer()\" class=\"btn btn-outline-danger\">Stop Server</a>\r\n    </div>\r\n  </div>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-12\">\r\n      <div class=\"center\">\r\n        <app-canvas #canvas></app-canvas>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n"
+module.exports = "<div class=\"container\">\r\n  <h1>Char</h1>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-2\">\r\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\r\n    </div>\r\n    <div class=\"col-md-2\">\r\n      <a (click)=\"shutdownServer()\" class=\"btn btn-outline-danger\">Stop Server</a>\r\n    </div>\r\n  </div>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-8\">\r\n      <div class=\"center\">\r\n        <app-canvas #canvas></app-canvas>\r\n      </div>\r\n    </div>\r\n    <div class=\"col-md-4\">\r\n      <div class=\"center\">\r\n        <h1>Our guess:</h1>\r\n        <span class=\"result\"><b>{{maxData}}</b></span>\r\n        <hr>\r\n        <h3>Other guesses:</h3>\r\n        <table class=\"table\">\r\n          <tr>\r\n            <td>#</td>\r\n            <td>Activation</td>\r\n          </tr>\r\n          <tr *ngFor=\"let activation of lastData; let i = index\">\r\n            <td>{{i}}</td>\r\n            <td>{{activation*100 | number:'1.1-1'}}%</td>\r\n          </tr>\r\n        </table>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n"
 
 /***/ }),
 

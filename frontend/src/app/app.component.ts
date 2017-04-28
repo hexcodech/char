@@ -11,6 +11,8 @@ export class AppComponent implements OnInit {
 
   private socketIO;
   private lastShutdownClick;
+  private lastData;
+  private maxData;
 
   constructor(socketIO: SocketIO) {
     this.socketIO = socketIO;
@@ -19,6 +21,8 @@ export class AppComponent implements OnInit {
   ngOnInit()  {
     this.socketIO.getSocket().on('read', (data) =>  {
       console.log(data);
+      this.lastData = data;
+      this.maxData = data.indexOf(Math.max(...data));
     });
   }
 

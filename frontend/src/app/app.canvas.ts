@@ -107,7 +107,7 @@ export class CanvasComponent implements AfterViewInit {
   public clearRect() {
     if(!this.cx)
       return;
-    
+
     this.cx.fillStyle = "#ffffff";
     this.cx.fillRect(0,0,this.width, this.height);
   }
