@@ -4,7 +4,7 @@ import * as io from 'socket.io-client';
 
 @Injectable()
 export class SocketIO {
-  private url = 'http://localhost:6969';
+  private url = 'http://46.105.255.24:6969';
   private socket;
 
   constructor() {
