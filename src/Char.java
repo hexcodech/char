@@ -52,8 +52,6 @@ public class Char {
     private static final int N_CHANNELS          = 1;
     private static final int ITERATIONS          = 1;
 
-    private static final String HOSTNAME         = "localhost";
-    private static final int PORT                = 9316;
     private static final String ENCODING_PREFIX  = "base64,";
 
     private final int                            SEED;
@@ -69,10 +67,15 @@ public class Char {
     private ImageLoader loader                   = new ImageLoader();
     private Random random                        = new Random();
 
+    private String HOSTNAME;
+    private int PORT;
 
     private boolean working                      = false;
 
-    Char() throws Exception{
+    Char(String hostname, int port) throws Exception{
+
+        HOSTNAME = hostname;
+        PORT = port;
         SEED = random.nextInt(1000);//set seed to a constant to be able to find better hyperparams
 
         loadModel("mnist-data.ki"); addSaveHook();
@@ -324,7 +327,15 @@ public class Char {
     }
 
     public static void main(String[] args) throws Exception {
-        new Char();
+        String hostname = "localhost";
+        int port = 9316;
+
+        if(args.length == 2){
+            hostname = args[0];
+            port = Integer.parseInt(args[1]);
+        }
+
+        new Char(hostname, port);
     }
 
 }
