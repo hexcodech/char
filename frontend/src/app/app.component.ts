@@ -26,12 +26,4 @@ export class AppComponent implements OnInit {
       this.maxData = data.indexOf(Math.max(...data));
     });
   }
-
-  private shutdownServer()  {
-    if(!this.lastShutdownClick)
-      this.lastShutdownClick = Date.now();
-
-    if((Date.now() - this.lastShutdownClick)<=500)
-      this.socketIO.sendMessage('stop hammertime', '');
-  }
 }

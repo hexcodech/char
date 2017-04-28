@@ -65,43 +65,8 @@ var CanvasComponent = (function () {
         //Height & Width for the canvas
         this.width = 400;
         this.height = 400;
-        this.sendBase64PNG = __WEBPACK_IMPORTED_MODULE_3_lodash__["throttle"](function () {
-            _this.socketIO.sendMessage('read', _this.canvas.nativeElement.toDataURL());
-            console.log(_this.canvas.nativeElement.toDataURL());
-        }, 250);
-        this.socketIO = socketIO;
-    }
-    CanvasComponent.prototype.ngAfterViewInit = function () {
-        //get context
-        var canvasEl = this.canvas.nativeElement;
-        this.cx = canvasEl.getContext('2d');
-        //set width & height
-        canvasEl.width = this.width;
-        canvasEl.height = this.height;
-        //set draw settings
-        this.cx.lineWidth = 10;
-        this.cx.lineCap = 'round';
-        this.cx.strokeStyle = '#000000';
-        this.cx.fillStyle = "#ffffff";
-        this.cx.fillRect(0, 0, this.width, this.height);
-        //capture mouse events
-        this.captureEvents(canvasEl);
-    };
-    CanvasComponent.prototype.captureEvents = function (canvasEl) {
-        var _this = this;
-        //Turn js event to an observable
-        __WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"]
-            .fromEvent(canvasEl, 'mousedown')
-            .switchMap(function (event) {
-            //We got a click now record all mouse moves till the click stops (or off canvas) and get pairs of values to generate a line
-            return __WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"]
-                .fromEvent(canvasEl, 'mousemove')
-                .takeUntil(__WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"].fromEvent(canvasEl, 'mouseup'))
-                .takeUntil(__WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"].fromEvent(canvasEl, 'mouseout'))
-                .pairwise();
-        })
-            .subscribe(function (res) {
-            var rect = canvasEl.getBoundingClientRect();
+        this.drawSubscriber = function (res) {
+            var rect = _this.canvasEl.getBoundingClientRect();
             //current & previous pos - offset
             var prevPos = {
                 x: res[0].clientX - rect.left,
@@ -115,7 +80,47 @@ var CanvasComponent = (function () {
             _this.drawOnCanvas(prevPos, currentPos);
             //and then send...
             _this.sendBase64PNG();
-        });
+        };
+        this.sendBase64PNG = __WEBPACK_IMPORTED_MODULE_3_lodash__["throttle"](function () {
+            _this.socketIO.sendMessage('read', _this.canvas.nativeElement.toDataURL());
+            console.log(_this.canvas.nativeElement.toDataURL());
+        }, 250);
+        this.socketIO = socketIO;
+    }
+    CanvasComponent.prototype.ngAfterViewInit = function () {
+        document.addEventListener('touchstart', this.touchHandler, true);
+        document.addEventListener('touchmove', this.touchHandler, true);
+        document.addEventListener('touchend', this.touchHandler, true);
+        document.addEventListener('touchcancel', this.touchHandler, true);
+        document.addEventListener('touchleave', this.touchHandler, true);
+        //get context
+        this.canvasEl = this.canvas.nativeElement;
+        this.cx = this.canvasEl.getContext('2d');
+        //set width & height
+        this.canvasEl.width = this.width;
+        this.canvasEl.height = this.height;
+        //set draw settings
+        this.cx.lineWidth = 10;
+        this.cx.lineCap = 'round';
+        this.cx.strokeStyle = '#000000';
+        this.cx.fillStyle = "#ffffff";
+        this.cx.fillRect(0, 0, this.width, this.height);
+        //capture mouse events
+        this.captureEvents(this.canvasEl);
+    };
+    CanvasComponent.prototype.captureEvents = function (canvasEl) {
+        //Turn js event to an observable
+        __WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"]
+            .fromEvent(canvasEl, 'mousedown')
+            .switchMap(function (event) {
+            //We got a click now record all mouse moves till the click stops (or off canvas) and get pairs of values to generate a line
+            return __WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"]
+                .fromEvent(canvasEl, 'mousemove')
+                .takeUntil(__WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"].fromEvent(canvasEl, 'mouseup'))
+                .takeUntil(__WEBPACK_IMPORTED_MODULE_1_rxjs_Rx__["Observable"].fromEvent(canvasEl, 'mouseout'))
+                .pairwise();
+        })
+            .subscribe(this.drawSubscriber);
     };
     CanvasComponent.prototype.drawOnCanvas = function (prevPos, currentPos) {
         //just to be sure...
@@ -127,6 +132,31 @@ var CanvasComponent = (function () {
             this.cx.lineTo(currentPos.x, currentPos.y); //to
             this.cx.stroke(); //apply the stroke settings set in ngAfterViewInit
         }
+    };
+    CanvasComponent.prototype.touchHandler = function (event) {
+        var touches = event.changedTouches, first = touches[0], type = "";
+        switch (event.type) {
+            case "touchstart":
+                type = "mousedown";
+                break;
+            case "touchmove":
+                type = "mousemove";
+                break;
+            case "touchend":
+                type = "mouseup";
+                break;
+            case "touchleave":
+                type = "mouseout";
+                break;
+            default: return;
+        }
+        // initMouseEvent(type, canBubble, cancelable, view, clickCount,
+        //                screenX, screenY, clientX, clientY, ctrlKey,
+        //                altKey, shiftKey, metaKey, button, relatedTarget);
+        var simulatedEvent = document.createEvent("MouseEvent");
+        simulatedEvent.initMouseEvent(type, true, true, window, 1, first.screenX, first.screenY, first.clientX, first.clientY, false, false, false, false, 0 /*left*/, null);
+        first.target.dispatchEvent(simulatedEvent);
+        event.preventDefault();
     };
     CanvasComponent.prototype.clearRect = function () {
         if (!this.cx)
@@ -192,12 +222,6 @@ var AppComponent = (function () {
             _this.lastData = data;
             _this.maxData = data.indexOf(Math.max.apply(Math, data));
         });
-    };
-    AppComponent.prototype.shutdownServer = function () {
-        if (!this.lastShutdownClick)
-            this.lastShutdownClick = Date.now();
-        if ((Date.now() - this.lastShutdownClick) <= 500)
-            this.socketIO.sendMessage('stop hammertime', '');
     };
     return AppComponent;
 }());
@@ -327,7 +351,7 @@ module.exports = module.exports.toString();
 /***/ 235:
 /***/ (function(module, exports) {
 
-module.exports = "<div class=\"container\">\r\n  <h1>Char</h1>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-2\">\r\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\r\n    </div>\r\n    <div class=\"col-md-2\">\r\n      <a (click)=\"shutdownServer()\" class=\"btn btn-outline-danger\">Stop Server</a>\r\n    </div>\r\n  </div>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-8\">\r\n      <div class=\"center\">\r\n        <app-canvas #canvas></app-canvas>\r\n      </div>\r\n    </div>\r\n    <div class=\"col-md-4\">\r\n      <div class=\"center\">\r\n        <h1>Our guess:</h1>\r\n        <span class=\"result\"><b>{{maxData}}</b></span>\r\n        <hr>\r\n        <h3>Other guesses:</h3>\r\n        <table class=\"table\">\r\n          <tr>\r\n            <td>#</td>\r\n            <td>Activation</td>\r\n          </tr>\r\n          <tr *ngFor=\"let activation of lastData; let i = index\">\r\n            <td>{{i}}</td>\r\n            <td>{{activation*100 | number:'1.1-1'}}%</td>\r\n          </tr>\r\n        </table>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n"
+module.exports = "<div class=\"container\">\r\n  <h1>Char</h1>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-8\">\r\n      <a (click)=\"canvas.clearRect()\" class=\"btn btn-outline-warning\">Clear</a>\r\n    </div>\r\n  </div>\r\n  <br>\r\n  <div class=\"row\">\r\n    <div class=\"col-md-8\">\r\n      <div class=\"center\">\r\n        <app-canvas #canvas></app-canvas>\r\n      </div>\r\n    </div>\r\n    <div class=\"col-md-4\">\r\n      <div class=\"center\">\r\n        <h1>Our guess:</h1>\r\n        <span class=\"result\"><b>{{maxData}}</b></span>\r\n        <hr>\r\n        <h3>Other guesses:</h3>\r\n        <table class=\"table\">\r\n          <tr>\r\n            <td>#</td>\r\n            <td>Activation</td>\r\n          </tr>\r\n          <tr *ngFor=\"let activation of lastData; let i = index\">\r\n            <td>{{i}}</td>\r\n            <td>{{activation*100 | number:'1.1-1'}}%</td>\r\n          </tr>\r\n        </table>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n"
 
 /***/ }),
 

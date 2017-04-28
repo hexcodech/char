@@ -17,6 +17,7 @@ export class CanvasComponent implements AfterViewInit {
   @Input() public height = 400;
 
   private cx: CanvasRenderingContext2D;
+  private canvasEl: HTMLCanvasElement;
   private socketIO;
 
   constructor(socketIO: SocketIO) {
@@ -24,13 +25,19 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   ngAfterViewInit() {
+    document.addEventListener('touchstart', this.touchHandler, true);
+    document.addEventListener('touchmove', this.touchHandler, true);
+    document.addEventListener('touchend', this.touchHandler, true);
+    document.addEventListener('touchcancel', this.touchHandler, true);
+    document.addEventListener('touchleave', this.touchHandler, true);
+
     //get context
-    const canvasEl: HTMLCanvasElement = this.canvas.nativeElement;
-    this.cx = canvasEl.getContext('2d');
+    this.canvasEl = this.canvas.nativeElement;
+    this.cx = this.canvasEl.getContext('2d');
 
     //set width & height
-    canvasEl.width = this.width;
-    canvasEl.height = this.height;
+    this.canvasEl.width = this.width;
+    this.canvasEl.height = this.height;
 
     //set draw settings
     this.cx.lineWidth = 10;
@@ -41,7 +48,7 @@ export class CanvasComponent implements AfterViewInit {
     this.cx.fillRect(0,0,this.width, this.height);
 
     //capture mouse events
-    this.captureEvents(canvasEl);
+    this.captureEvents(this.canvasEl);
   }
 
   private captureEvents(canvasEl: HTMLCanvasElement)  {
@@ -56,25 +63,28 @@ export class CanvasComponent implements AfterViewInit {
           .takeUntil(Observable.fromEvent(canvasEl, 'mouseout'))
           .pairwise()
       })
-      .subscribe((res: [MouseEvent, MouseEvent]) => {
-        const rect = canvasEl.getBoundingClientRect();
+      .subscribe(this.drawSubscriber);
 
-        //current & previous pos - offset
-        const prevPos = {
-          x: res[0].clientX - rect.left,
-          y: res[0].clientY - rect.top
-        };
-        const currentPos = {
-          x: res[1].clientX - rect.left,
-          y: res[1].clientY - rect.top
-        };
-
-        //let's draw
-        this.drawOnCanvas(prevPos, currentPos);
-        //and then send...
-        this.sendBase64PNG();
-      })
   }
+
+  private drawSubscriber = (res: [MouseEvent, MouseEvent]) => {
+    const rect = this.canvasEl.getBoundingClientRect();
+
+    //current & previous pos - offset
+    const prevPos = {
+      x: res[0].clientX - rect.left,
+      y: res[0].clientY - rect.top
+    };
+    const currentPos = {
+      x: res[1].clientX - rect.left,
+      y: res[1].clientY - rect.top
+    };
+
+    //let's draw
+    this.drawOnCanvas(prevPos, currentPos);
+    //and then send...
+    this.sendBase64PNG();
+  };
 
   private drawOnCanvas(
     prevPos: {
@@ -97,6 +107,33 @@ export class CanvasComponent implements AfterViewInit {
       this.cx.lineTo(currentPos.x, currentPos.y); //to
       this.cx.stroke(); //apply the stroke settings set in ngAfterViewInit
     }
+  }
+
+  private touchHandler(event){
+    let touches = event.changedTouches,
+      first = touches[0],
+      type = "";
+    switch(event.type)
+    {
+      case "touchstart": type = "mousedown"; break;
+      case "touchmove":  type = "mousemove"; break;
+      case "touchend":   type = "mouseup";   break;
+      case "touchleave": type = "mouseout";  break;
+      default:           return;
+    }
+
+    // initMouseEvent(type, canBubble, cancelable, view, clickCount,
+    //                screenX, screenY, clientX, clientY, ctrlKey,
+    //                altKey, shiftKey, metaKey, button, relatedTarget);
+
+    let simulatedEvent = document.createEvent("MouseEvent");
+    simulatedEvent.initMouseEvent(type, true, true, window, 1,
+      first.screenX, first.screenY,
+      first.clientX, first.clientY, false,
+      false, false, false, 0/*left*/, null);
+
+    first.target.dispatchEvent(simulatedEvent);
+    event.preventDefault();
   }
 
   private sendBase64PNG = _.throttle(() => {
