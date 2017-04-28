@@ -370,7 +370,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 
 var SocketIO = (function () {
     function SocketIO() {
-        this.url = 'http://46.105.255.24:6969';
+        this.url = 'http://46.105.255.24:9316';
         if (!this.socket) {
             this.initializeSocket();
         }
