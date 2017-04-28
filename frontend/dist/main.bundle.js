@@ -187,6 +187,7 @@ var AppComponent = (function () {
     AppComponent.prototype.ngOnInit = function () {
         var _this = this;
         this.socketIO.getSocket().on('read', function (data) {
+            data = JSON.parse(data);
             console.log(data);
             _this.lastData = data;
             _this.maxData = data.indexOf(Math.max.apply(Math, data));
