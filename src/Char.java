@@ -53,7 +53,7 @@ public class Char {
     private static final int ITERATIONS          = 1;
 
     private static final String HOSTNAME         = "localhost";
-    private static final int PORT                = 6969;
+    private static final int PORT                = 9316;
     private static final String ENCODING_PREFIX  = "base64,";
 
     private final int                            SEED;
@@ -91,10 +91,10 @@ public class Char {
 
                     INDArray values              = grayScaleImage(originalImage, 28, 28);
 
-                    BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
+                   /* BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
                     for( int i=0; i<784; i++ ){
                         bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*values.getDouble(i)));
-                    }
+                    }*/
 
                     //ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
 
