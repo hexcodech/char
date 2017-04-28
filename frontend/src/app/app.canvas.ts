@@ -37,6 +37,9 @@ export class CanvasComponent implements AfterViewInit {
     this.cx.lineCap = 'round';
     this.cx.strokeStyle = '#000000';
 
+    this.cx.fillStyle = "#ffffff";
+    this.cx.fillRect(0,0,this.width, this.height);
+
     //capture mouse events
     this.captureEvents(canvasEl);
   }
@@ -104,7 +107,8 @@ export class CanvasComponent implements AfterViewInit {
   public clearRect() {
     if(!this.cx)
       return;
-
-    this.cx.clearRect(0, 0, this.width, this.height);
+    
+    this.cx.fillStyle = "#ffffff";
+    this.cx.fillRect(0,0,this.width, this.height);
   }
 }

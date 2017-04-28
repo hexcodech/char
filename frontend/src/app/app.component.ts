@@ -10,6 +10,7 @@ export class AppComponent implements OnInit {
   @ViewChild('canvas') canvas;
 
   private socketIO;
+  private lastShutdownClick;
 
   constructor(socketIO: SocketIO) {
     this.socketIO = socketIO;
@@ -22,6 +23,10 @@ export class AppComponent implements OnInit {
   }
 
   private shutdownServer()  {
-    this.socketIO.sendMessage('stop hammertime', '');
+    if(!this.lastShutdownClick)
+      this.lastShutdownClick = Date.now();
+
+    if((Date.now() - this.lastShutdownClick)<=500)
+      this.socketIO.sendMessage('stop hammertime', '');
   }
 }

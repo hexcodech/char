@@ -82,6 +82,8 @@ var CanvasComponent = (function () {
         this.cx.lineWidth = 10;
         this.cx.lineCap = 'round';
         this.cx.strokeStyle = '#000000';
+        this.cx.fillStyle = "#ffffff";
+        this.cx.fillRect(0, 0, this.width, this.height);
         //capture mouse events
         this.captureEvents(canvasEl);
     };
@@ -129,7 +131,8 @@ var CanvasComponent = (function () {
     CanvasComponent.prototype.clearRect = function () {
         if (!this.cx)
             return;
-        this.cx.clearRect(0, 0, this.width, this.height);
+        this.cx.fillStyle = "#ffffff";
+        this.cx.fillRect(0, 0, this.width, this.height);
     };
     return CanvasComponent;
 }());
@@ -187,7 +190,10 @@ var AppComponent = (function () {
         });
     };
     AppComponent.prototype.shutdownServer = function () {
-        this.socketIO.sendMessage('stop hammertime', '');
+        if (!this.lastShutdownClick)
+            this.lastShutdownClick = Date.now();
+        if ((Date.now() - this.lastShutdownClick) <= 500)
+            this.socketIO.sendMessage('stop hammertime', '');
     };
     return AppComponent;
 }());
@@ -360,7 +366,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 
 var SocketIO = (function () {
     function SocketIO() {
-        this.url = '//localhost:6969';
+        this.url = 'http://localhost:6969';
         if (!this.socket) {
             this.initializeSocket();
         }
