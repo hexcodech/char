@@ -25,6 +25,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
+import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,26 +87,32 @@ public class Char {
                     ByteArrayInputStream bis     = new ByteArrayInputStream(imageBytes);
                     BufferedImage originalImage  = ImageIO.read(bis); bis.close();
 
-                    BufferedImage scaledImage    = scaleImage(originalImage, 28, 28);
-                    INDArray values              = loader.asRowVector(scaledImage); //not gray yet
+                    ImageIO.write(originalImage, "png", new File("orig.png"));
 
-                    for(int x=0;x<scaledImage.getWidth();x++){
-                        for(int y=0;y<scaledImage.getHeight();y++){
+                    INDArray values              = grayScaleImage(originalImage, 28, 28);
 
-                            //invert because the input is black on white and mnist white on black
-                            //and divide by 255 as the mnist values are between 0 and 1
+                    BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
+                    for( int i=0; i<784; i++ ){
+                        bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*values.getDouble(i)));
+                    }
 
-                            values.putScalar(
-                                    x + y * 28,
-                                    1.0 - (toGray(new Color(scaledImage.getRGB(x, y))) / 255.0)
-                            );
+                    ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
+
+                    double[] output = model.output(values).data().asDouble();
+                    int max = 0;
+
+                    for(int i=1;i<output.length;i++){
+                        if(output[i] > output[max]){
+                            max = i;
                         }
                     }
+
+                    log.info("Read " + max + " (" + output[max] + ")");
 
                     client.sendEvent(
                             "read",
                             Arrays.toString(
-                                    model.output(values).data().asDouble()
+                                    output
                             )
                     );
 
@@ -170,26 +177,53 @@ public class Char {
         return eval.stats();
     }
 
-    BufferedImage scaleImage(BufferedImage image, int width, int height){
-        BufferedImage scaledImage = new BufferedImage(width, height, image.getType());
-        Graphics2D graphics2d = scaledImage.createGraphics();
+    INDArray grayScaleImage(BufferedImage image, int width, int height){
+        INDArray values = Nd4j.zeros(width*height);
 
-        graphics2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        graphics2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        graphics2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        double boxWidth  = (((double) image.getWidth())  / (double) width);
+        double boxHeight = (((double) image.getHeight()) / (double) height);
 
-        graphics2d.drawImage(image, 0, 0, width, height, null);
-        graphics2d.dispose();
+        for(int x=0; x<width; x++){
+            for(int y=0; y<height; y++){
 
-        return scaledImage;
+                double sum = 0, weight = 0;
+
+                for(int x2 = (int) Math.floor(x*boxWidth); x2 < (x+1) * boxWidth; x2++){
+                    for(int y2 = (int) Math.floor(y*boxHeight); y2 < (y+1) * boxHeight; y2++){
+
+                        Color color;
+
+                        if((x2 < image.getWidth() && y2 < image.getHeight())){
+                            color = new Color(image.getRGB(x2, y2));
+                        }else{
+                            color = Color.white;
+                        }
+
+                        double red   = (double) color.getRed();
+                        double green = (double) color.getGreen();
+                        double blue  = (double) color.getBlue();
+
+                        sum += (0.299f * red + 0.587f * green + 0.114f * blue);
+                        weight++;
+                    }
+                }
+
+                //invert because the input is black on white and mnist white on black
+                //and divide by 255 as the mnist values are between 0 and 1
+
+                values.putScalar(x + y * width, 1.0f - (float) ((sum/weight/255) * (sum/weight/255)));
+            }
+        }
+
+        return values;
     }
 
     double toGray(Color color){
-        int red = color.getRed();
-        int green = color.getGreen();
-        int blue = color.getBlue();
+        double red   = (double) color.getRed();
+        double green = (double) color.getGreen();
+        double blue  = (double) color.getBlue();
 
-        return (0.299 * red + 0.587 * green + 0.114 * blue);
+        return (0.299f * red + 0.587f * green + 0.114f * blue);
     }
 
     void loadModel(String path) throws Exception{
