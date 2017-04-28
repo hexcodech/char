@@ -87,7 +87,7 @@ public class Char {
                     ByteArrayInputStream bis     = new ByteArrayInputStream(imageBytes);
                     BufferedImage originalImage  = ImageIO.read(bis); bis.close();
 
-                    ImageIO.write(originalImage, "png", new File("orig.png"));
+                    //ImageIO.write(originalImage, "png", new File("orig.png"));
 
                     INDArray values              = grayScaleImage(originalImage, 28, 28);
 
@@ -96,7 +96,7 @@ public class Char {
                         bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*values.getDouble(i)));
                     }
 
-                    ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
+                    //ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
 
                     double[] output = model.output(values).data().asDouble();
                     int max = 0;
