@@ -11,8 +11,8 @@ export class AppComponent implements OnInit {
 
   private socketIO;
   private lastShutdownClick;
-  private lastData;
-  private maxData;
+  public lastData;
+  public maxData;
 
   constructor(socketIO: SocketIO) {
     this.socketIO = socketIO;

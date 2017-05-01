@@ -25,12 +25,6 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   ngAfterViewInit() {
-    document.addEventListener('touchstart', this.touchHandler, true);
-    document.addEventListener('touchmove', this.touchHandler, true);
-    document.addEventListener('touchend', this.touchHandler, true);
-    document.addEventListener('touchcancel', this.touchHandler, true);
-    document.addEventListener('touchleave', this.touchHandler, true);
-
     //get context
     this.canvasEl = this.canvas.nativeElement;
     this.cx = this.canvasEl.getContext('2d');
@@ -52,6 +46,12 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   private captureEvents(canvasEl: HTMLCanvasElement)  {
+    canvasEl.addEventListener('touchstart', this.touchHandler, true);
+    canvasEl.addEventListener('touchmove', this.touchHandler, true);
+    canvasEl.addEventListener('touchend', this.touchHandler, true);
+    canvasEl.addEventListener('touchcancel', this.touchHandler, true);
+    canvasEl.addEventListener('touchleave', this.touchHandler, true);
+
     //Turn js event to an observable
     Observable
       .fromEvent(canvasEl, 'mousedown')
@@ -116,7 +116,7 @@ export class CanvasComponent implements AfterViewInit {
     switch(event.type)
     {
       case "touchstart": type = "mousedown"; break;
-      case "touchmove":  type = "mousemove"; break;
+      case "touchmove":  type = "mousemove"; event.preventDefault(); break;
       case "touchend":   type = "mouseup";   break;
       case "touchleave": type = "mouseout";  break;
       default:           return;
@@ -133,7 +133,6 @@ export class CanvasComponent implements AfterViewInit {
       false, false, false, 0/*left*/, null);
 
     first.target.dispatchEvent(simulatedEvent);
-    event.preventDefault();
   }
 
   private sendBase64PNG = _.throttle(() => {
