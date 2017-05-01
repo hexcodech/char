@@ -137,7 +137,6 @@ export class CanvasComponent implements AfterViewInit {
 
   private sendBase64PNG = _.throttle(() => {
     this.socketIO.sendMessage('read', this.canvas.nativeElement.toDataURL());
-    console.log(this.canvas.nativeElement.toDataURL());
   }, 250);
 
   public clearRect() {

@@ -23,9 +23,9 @@
             <td>#</td>
             <td>Activation</td>
           </tr>
-          <tr *ngFor="let activation of lastData; let i = index">
-            <td>{{i}}</td>
-            <td>{{activation*100 | number:'1.1-1'}}%</td>
+          <tr *ngFor="let activation of lastData">
+            <td>{{activation[0]}}</td>
+            <td>{{activation[1]*100 | number:'1.1-1'}}%</td>
           </tr>
         </table>
       </div>

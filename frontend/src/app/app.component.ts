@@ -21,8 +21,13 @@ export class AppComponent implements OnInit {
   ngOnInit()  {
     this.socketIO.getSocket().on('read', (data) =>  {
       data = JSON.parse(data);
-      console.log(data);
-      this.lastData = data;
+      this.lastData = [];
+      for(let key in data)  {
+        this.lastData.push([parseInt(key), data[key]])
+      }
+      this.lastData.sort(function(a,b) {
+          return b[1]-a[1];
+      });
       this.maxData = data.indexOf(Math.max(...data));
     });
   }
