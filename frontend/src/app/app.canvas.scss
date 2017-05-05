@@ -1,3 +1,9 @@
-canvas  {
+#canvas  {
   border: 1px solid #000000;
+  position: absolute;
+}
+
+#canvasOverlay  {
+  position: absolute;
+  pointer-events: none;
 }
