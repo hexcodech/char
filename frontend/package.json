@@ -22,6 +22,7 @@
     "@angular/router": "^4.0.0",
     "@types/lodash": "^4.14.63",
     "bootstrap": "^4.0.0-alpha.6",
+    "chart.js": "^2.5.0",
     "core-js": "^2.4.1",
     "lodash": "^4.17.4",
     "rxjs": "^5.1.0",
