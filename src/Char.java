@@ -3,6 +3,7 @@ import com.corundumstudio.socketio.Configuration;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.DataListener;
+import org.datavec.api.records.reader.RecordReader;
 import org.datavec.image.loader.ImageLoader;
 import org.deeplearning4j.nn.conf.LearningRatePolicy;
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -78,7 +79,7 @@ public class Char {
         PORT = port;
         SEED = random.nextInt(1000);//set seed to a constant to be able to find better hyperparams
 
-        loadModel("mnist-data.ki"); addSaveHook();
+        loadModel("fer13.ki"); addSaveHook();
         setupSocketIO();
 
         server.addEventListener("read", String.class, new DataListener<String>() {
@@ -92,11 +93,11 @@ public class Char {
 
                     //ImageIO.write(originalImage, "png", new File("orig.png"));
 
-                    INDArray values              = grayScaleImage(originalImage, 28, 28);
+                    INDArray values              = grayScaleImage(originalImage, 48, 48);
 
-                   /* BufferedImage bi = new BufferedImage(28,28,BufferedImage.TYPE_BYTE_GRAY);
+                   /* BufferedImage bi = new BufferedImage(48,48,BufferedImage.TYPE_BYTE_GRAY);
                     for( int i=0; i<784; i++ ){
-                        bi.getRaster().setSample(i % 28, i / 28, 0, (int)(255*values.getDouble(i)));
+                        bi.getRaster().setSample(i % 48, i / 48, 0, (int)(255*values.getDouble(i)));
                     }*/
 
                     //ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
@@ -155,6 +156,8 @@ public class Char {
     }
 
     void trainModel() throws Exception{
+
+        DataSet set = new DataSet();
 
         mnistTrain = new MnistDataSetIterator(BATCH_SIZE, true, SEED);
 
@@ -296,7 +299,7 @@ public class Char {
                         .nOut(OUTPUT_NUM)
                         .activation(Activation.SOFTMAX)
                         .build())
-                .setInputType(InputType.convolutionalFlat(28,28,1)) //See note below
+                .setInputType(InputType.convolutionalFlat(48,48,1)) //See note below
                 .backprop(true).pretrain(false).build();
 
             model = new MultiLayerNetwork(conf);
@@ -315,7 +318,7 @@ public class Char {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 try{
-                    File locationToSave = new File("mnist-data.ki");
+                    File locationToSave = new File("fer13.ki");
                     ModelSerializer.writeModel(model, locationToSave, true);
 
                     mainThread.join();
