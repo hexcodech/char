@@ -3,7 +3,6 @@ import com.corundumstudio.socketio.Configuration;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.DataListener;
-import org.datavec.api.records.reader.RecordReader;
 import org.datavec.image.loader.ImageLoader;
 import org.deeplearning4j.nn.conf.LearningRatePolicy;
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -11,9 +10,7 @@ import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
-import org.nd4j.linalg.api.buffer.DataBuffer;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
-import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
@@ -46,7 +43,8 @@ import java.util.Random;
 public class Char {
 
     private static Logger log = LoggerFactory.getLogger(Char.class);
-    private static final int OUTPUT_NUM          = 10;
+    private static final int OUTPUT_NUM          = 6;
+    private static final int SQUARE_SIZE         = 48;
 
     private static final int BATCH_SIZE          = 128;
     private static final int NUM_EPOCHS          = 15;
@@ -58,7 +56,7 @@ public class Char {
     private final int                            SEED;
 
 
-    private DataSetIterator                      mnistTrain, mnistTest;
+    private DataSetIterator                      train, test;
     private MultiLayerNetwork                    model;
     private MultiLayerConfiguration              conf;
 
@@ -73,13 +71,34 @@ public class Char {
 
     private boolean working                      = false;
 
+    Char(boolean train) throws Exception{
+        SEED = random.nextInt(1000);
+        new Char(true, "localhost", 6969);
+    }
+
     Char(String hostname, int port) throws Exception{
+        SEED = random.nextInt(1000);
+        new Char(false, hostname, port);
+    }
+
+    Char(boolean train, String hostname, int port) throws Exception{
 
         HOSTNAME = hostname;
         PORT = port;
-        SEED = random.nextInt(1000);//set seed to a constant to be able to find better hyperparams
+        SEED = random.nextInt(1000);
 
         loadModel("fer13.ki"); addSaveHook();
+
+        if(train){
+            trainModel();
+            log.info(evaluateModel());
+        }else{
+            startServer();
+        }
+
+    }
+
+    void startServer(){
         setupSocketIO();
 
         server.addEventListener("read", String.class, new DataListener<String>() {
@@ -93,11 +112,11 @@ public class Char {
 
                     //ImageIO.write(originalImage, "png", new File("orig.png"));
 
-                    INDArray values              = grayScaleImage(originalImage, 48, 48);
+                    INDArray values              = grayScaleImage(originalImage, SQUARE_SIZE, SQUARE_SIZE);
 
-                   /* BufferedImage bi = new BufferedImage(48,48,BufferedImage.TYPE_BYTE_GRAY);
-                    for( int i=0; i<784; i++ ){
-                        bi.getRaster().setSample(i % 48, i / 48, 0, (int)(255*values.getDouble(i)));
+                   /* BufferedImage bi = new BufferedImage(SQUARE_SIZE,SQUARE_SIZE,BufferedImage.TYPE_BYTE_GRAY);
+                    for( int i=0; i<SQUARE_SIZE*SQUARE_SIZE; i++ ){
+                        bi.getRaster().setSample(i % SQUARE_SIZE, i / SQUARE_SIZE, 0, (int)(255*values.getDouble(i)));
                     }*/
 
                     //ImageIO.write(bi, "png", new File("read-gray-scaled.png"));
@@ -157,25 +176,23 @@ public class Char {
 
     void trainModel() throws Exception{
 
-        DataSet set = new DataSet();
-
-        mnistTrain = new MnistDataSetIterator(BATCH_SIZE, true, SEED);
+        train = new Fer13DataIterator(BATCH_SIZE, true, SEED);
 
         working = true;
 
         for(int i=0; i<NUM_EPOCHS; i++){
-            model.fit(mnistTrain);
+            model.fit(train);
         }
 
         working = false;
     }
 
     String evaluateModel() throws Exception{
-        mnistTest = new MnistDataSetIterator(BATCH_SIZE, false, SEED);
+        test = new Fer13DataIterator(BATCH_SIZE, false, SEED);
 
         Evaluation eval = new Evaluation(OUTPUT_NUM); //create an evaluation object with 10 possible classes
-        while(mnistTest.hasNext()){
-            DataSet next = mnistTest.next();
+        while(test.hasNext()){
+            DataSet next = test.next();
             INDArray output = model.output(next.getFeatureMatrix()); //get the networks prediction
             eval.eval(next.getLabels(), output); //check the prediction against the true class
         }
@@ -299,7 +316,7 @@ public class Char {
                         .nOut(OUTPUT_NUM)
                         .activation(Activation.SOFTMAX)
                         .build())
-                .setInputType(InputType.convolutionalFlat(48,48,1)) //See note below
+                .setInputType(InputType.convolutionalFlat(SQUARE_SIZE,SQUARE_SIZE,1)) //See note below
                 .backprop(true).pretrain(false).build();
 
             model = new MultiLayerNetwork(conf);
@@ -329,16 +346,16 @@ public class Char {
         });
     }
 
-    public static void main(String[] args) throws Exception {
-        String hostname = "localhost";
-        int port = 9316;
-
-        if(args.length == 2){
-            hostname = args[0];
-            port = Integer.parseInt(args[1]);
+    public static void main(String[] args){
+        try{
+            if(args.length == 0){
+                new Char(true);
+            }else if(args.length == 2){
+                new Char(args[0], Integer.parseInt(args[1]));
+            }
+        }catch(Exception e){
+            e.printStackTrace();
         }
-
-        new Char(hostname, port);
     }
 
 }
