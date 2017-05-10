@@ -173,12 +173,13 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   private sendBase64PNG = _.throttle(() => {
-    this.socketIO.sendMessage('read', {
+    /*this.socketIO.sendMessage('read', {
       image: this.canvas.nativeElement.toDataURL(),
       x: ((this.borderPos.maxX - this.borderPos.minX) / 2) + this.borderPos.minX,
       y: ((this.borderPos.maxY - this.borderPos.minY) / 2) + this.borderPos.minY,
       d: Math.max(this.borderPos.maxX - this.borderPos.minX, this.borderPos.maxY - this.borderPos.minY)
-    });
+    });*/
+    this.socketIO.sendMessage('read', this.canvas.nativeElement.toDataURL());
   }, 250);
 
   public clearRect() {

@@ -7,11 +7,13 @@ import { AppComponent } from './app.component';
 import { CanvasComponent } from './app.canvas';
 
 import { SocketIO } from './services/socket-io';
+import {CanvasCameraComponent} from "./app.canvas-camera";
 
 @NgModule({
   declarations: [
     AppComponent,
-    CanvasComponent
+    CanvasComponent,
+    CanvasCameraComponent
   ],
   imports: [
     BrowserModule,
