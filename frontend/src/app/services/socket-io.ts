@@ -4,7 +4,7 @@ import * as io from 'socket.io-client';
 
 @Injectable()
 export class SocketIO {
-  private url = 'http://46.105.255.24:9316';
+  private url = 'https://46.105.255.24:9316';
   private socket;
 
   constructor() {
@@ -14,7 +14,7 @@ export class SocketIO {
   }
   private initializeSocket() {
     this.socket = io(this.url, {
-      secure: true
+      secure: true,
     });
   }
   public getSocket()  {

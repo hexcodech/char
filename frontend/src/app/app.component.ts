@@ -10,7 +10,6 @@ export class AppComponent implements OnInit {
   @ViewChild('canvas') canvas;
 
   private socketIO;
-  private lastShutdownClick;
   public lastData;
   public maxData;
 
