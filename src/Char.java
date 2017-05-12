@@ -2,7 +2,10 @@ import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.Configuration;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.ack.AckManager;
 import com.corundumstudio.socketio.listener.DataListener;
+import com.corundumstudio.socketio.protocol.JacksonJsonSupport;
+import com.corundumstudio.socketio.protocol.PacketDecoder;
 import org.datavec.image.loader.ImageLoader;
 import org.deeplearning4j.nn.conf.LearningRatePolicy;
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -62,9 +65,11 @@ public class Char {
 
     private SocketIOServer                       server;
 
-    private BASE64Decoder decoder                = new BASE64Decoder();
+    private BASE64Decoder base64Decoder          = new BASE64Decoder();
     private ImageLoader loader                   = new ImageLoader();
     private Random random                        = new Random();
+    private AckManager                           ackManager;
+    private PacketDecoder packetDecoder          = new PacketDecoder( new JacksonJsonSupport(), ackManager);
 
     private String HOSTNAME;
     private int PORT;
@@ -101,18 +106,33 @@ public class Char {
     void startServer(){
         setupSocketIO();
 
-        server.addEventListener("read", String.class, new DataListener<String>() {
-            public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
+        server.addEventListener("read", FaceObject.class, new DataListener<FaceObject>() {
+            public void onData(SocketIOClient client, FaceObject face, AckRequest ackRequest) {
+
+                int minLen= Math.min(face.getWidth(), face.getHeight());
+                int maxLen = Math.max(face.getWidth(), face.getHeight());
+
+                if(minLen < SQUARE_SIZE){
+                    client.sendEvent(
+                            "read", "[0,0,0,0,0,0]"
+                    );
+
+                    return;
+                }
+
                 try{
-
-                    int contentStartIndex        = data.indexOf(ENCODING_PREFIX) + ENCODING_PREFIX.length();
-                    byte[] imageBytes            = decoder.decodeBuffer(data.substring(contentStartIndex));
+                    int contentStartIndex        = face.getImage().indexOf(ENCODING_PREFIX) + ENCODING_PREFIX.length();
+                    byte[] imageBytes            = base64Decoder.decodeBuffer(face.getImage().substring(contentStartIndex));
                     ByteArrayInputStream bis     = new ByteArrayInputStream(imageBytes);
-                    BufferedImage originalImage  = ImageIO.read(bis); bis.close();
+                    BufferedImage originalImage  = ImageIO.read(bis);
+                                                   bis.close();
 
-                    //ImageIO.write(originalImage, "png", new File("orig.png"));
+                    BufferedImage croppedImage   = cropImage(originalImage, new Rectangle(face.getX(), face.getY(), maxLen, maxLen));
 
-                    INDArray values              = grayScaleImage(originalImage, SQUARE_SIZE, SQUARE_SIZE);
+
+                    //ImageIO.write(croppedImage, "png", new File("orig.png"));
+
+                    INDArray values              = grayScaleImage(croppedImage, SQUARE_SIZE, SQUARE_SIZE);
 
                    /* BufferedImage bi = new BufferedImage(SQUARE_SIZE,SQUARE_SIZE,BufferedImage.TYPE_BYTE_GRAY);
                     for( int i=0; i<SQUARE_SIZE*SQUARE_SIZE; i++ ){
@@ -198,6 +218,11 @@ public class Char {
         }
 
         return eval.stats();
+    }
+
+    BufferedImage cropImage(BufferedImage src, Rectangle rect) {
+        BufferedImage dest = src.getSubimage(0, 0, rect.width, rect.height);
+        return dest;
     }
 
     INDArray grayScaleImage(BufferedImage image, int width, int height){
